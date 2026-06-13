@@ -1,4 +1,6 @@
 import os
+import datetime
+import decimal
 import mysql.connector
 
 DB_CONFIG = {
@@ -13,12 +15,37 @@ DB_CONFIG = {
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG)
 
+def convertir_valor(value):
+    if isinstance(value, datetime.timedelta):
+        return str(value)
+
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+
+    if isinstance(value, decimal.Decimal):
+        return float(value)
+
+    return value
+
+def convertir_fila(row):
+    if row is None:
+        return None
+
+    return {
+        key: convertir_valor(value)
+        for key, value in row.items()
+    }
+
 def query(sql, params=(), fetchone=False):
     conn = get_connection()
     try:
         cur = conn.cursor(dictionary=True)
         cur.execute(sql, params)
-        return cur.fetchone() if fetchone else cur.fetchall()
+
+        if fetchone:
+            return convertir_fila(cur.fetchone())
+
+        return [convertir_fila(row) for row in cur.fetchall()]
     finally:
         conn.close()
 
