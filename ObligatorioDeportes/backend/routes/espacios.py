@@ -15,6 +15,7 @@ def obtener(id):
 @bp.post("/")
 def crear():
     d = request.get_json(force=True)
+    #Registro de espacio.
     new_id = execute(
         "INSERT INTO espacio (nombre, ubicacion) VALUES (%s,%s)",
         (d["nombre"], d.get("ubicacion", ""))
@@ -24,6 +25,7 @@ def crear():
 @bp.put("/<int:id>")
 def actualizar(id):
     d = request.get_json(force=True)
+    # Actualización de espacio. Solo se actualizan los campos enviados.
     fields = {k: d[k] for k in ["nombre","ubicacion"] if k in d}
     set_clause = ", ".join(f"{k}=%s" for k in fields)
     execute(f"UPDATE espacio SET {set_clause} WHERE id_espacio=%s", (*fields.values(), id))
@@ -32,6 +34,7 @@ def actualizar(id):
 @bp.delete("/<int:id>")
 def eliminar(id):
     try:
+        # Elimina el espacio en caso de no tener actividades asociadas.
         execute("DELETE FROM espacio WHERE id_espacio=%s", (id,))
         return jsonify({"ok": True})
     except Exception:

@@ -3,6 +3,7 @@ from database.connection import query, execute
 
 bp = Blueprint("actividades", __name__, url_prefix="/api/actividades")
 
+# Consultamos la base para obtener las actividades junto con su disciplina y espacio
 JOIN = """SELECT a.*, d.nombre AS disciplina, e.nombre AS espacio
           FROM actividad a
           JOIN disciplina d ON a.id_disciplina = d.id_disciplina
@@ -21,6 +22,7 @@ def obtener(id):
 def crear():
     d = request.get_json(force=True)
     new_id = execute(
+        # El estado por defecto es abierto.
         "INSERT INTO actividad (nombre, id_disciplina, id_espacio, cupo_maximo, dia, hora, estado) VALUES (%s,%s,%s,%s,%s,%s,%s)",
         (d["nombre"], d["id_disciplina"], d["id_espacio"], d["cupo_maximo"], d["dia"], d["hora"], d.get("estado","ABIERTA").upper())
     )

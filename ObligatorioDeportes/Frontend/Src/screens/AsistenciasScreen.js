@@ -22,8 +22,21 @@ export default function AsistenciasScreen() {
   }, []);
 
   const registrarAsistencia = () => {
-    if (!idEstudiante || !idActividad) {
-      Alert.alert("Error", "Debe ingresar estudiante y actividad");
+    const estudianteNum = Number(idEstudiante);
+    const actividadNum = Number(idActividad);
+
+    if (!idEstudiante.trim() || !idActividad.trim()) {
+      Alert.alert("Error", "Debe ingresar ID de estudiante e ID de actividad");
+      return;
+    }
+
+    if (isNaN(estudianteNum) || estudianteNum <= 0) {
+      Alert.alert("Error", "El ID del estudiante debe ser un número mayor a 0");
+      return;
+    }
+
+    if (isNaN(actividadNum) || actividadNum <= 0) {
+      Alert.alert("Error", "El ID de la actividad debe ser un número mayor a 0");
       return;
     }
 
@@ -33,9 +46,9 @@ export default function AsistenciasScreen() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        id_estudiante: Number(idEstudiante),
-        id_actividad: Number(idActividad),
-        fecha: fecha || undefined,
+        id_estudiante: estudianteNum,
+        id_actividad: actividadNum,
+        fecha: fecha.trim() || undefined,
         asistio: asistio,
       }),
     })
@@ -54,11 +67,35 @@ export default function AsistenciasScreen() {
         setAsistio(true);
         cargarAsistencias();
       })
-      .catch((err) => console.log(err));
+      .catch((err) => {
+        console.log(err);
+        Alert.alert("Error", "No se pudo conectar con el servidor");
+      });
   };
 
-  return (
-    <View style={{ flex: 1 }}>
+  const eliminarAsistencia = (id) => {
+    fetch(`${API_URL}/asistencias/${id}`, {
+      method: "DELETE",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          Alert.alert("Error", data.error || "No se pudo eliminar la asistencia");
+          return;
+        }
+
+        Alert.alert("Correcto", "Asistencia eliminada");
+        cargarAsistencias();
+      })
+      .catch((err) => {
+        console.log(err);
+        Alert.alert("Error", "No se pudo conectar con el servidor");
+      });
+  };
+
+  const encabezado = (
+    <View>
       <Text style={styles.title}>Asistencias</Text>
 
       <View style={styles.form}>
@@ -104,9 +141,14 @@ export default function AsistenciasScreen() {
           <Text style={styles.primaryButtonText}>Registrar asistencia</Text>
         </Pressable>
       </View>
+    </View>
+  );
 
+  return (
+    <View style={{ flex: 1 }}>
       <FlatList
         data={asistencias}
+        ListHeaderComponent={encabezado}
         contentContainerStyle={{ paddingBottom: 40 }}
         keyExtractor={(item, index) =>
           item.id_asistencia ? item.id_asistencia.toString() : index.toString()
@@ -114,11 +156,21 @@ export default function AsistenciasScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{item.estudiante}</Text>
+            <Text style={styles.text}>ID Asistencia: {item.id_asistencia}</Text>
+            <Text style={styles.text}>ID Estudiante: {item.id_estudiante}</Text>
+            <Text style={styles.text}>ID Actividad: {item.id_actividad}</Text>
             <Text style={styles.text}>Actividad: {item.actividad}</Text>
             <Text style={styles.text}>Fecha: {item.fecha}</Text>
             <Text style={styles.text}>
               Asistió: {item.asistio === 1 || item.asistio === true ? "Sí" : "No"}
             </Text>
+
+            <Pressable
+              style={styles.dangerButton}
+              onPress={() => eliminarAsistencia(item.id_asistencia)}
+            >
+              <Text style={styles.primaryButtonText}>Eliminar asistencia</Text>
+            </Pressable>
           </View>
         )}
       />

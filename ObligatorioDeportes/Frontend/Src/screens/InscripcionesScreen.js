@@ -20,8 +20,21 @@ export default function InscripcionesScreen() {
   }, []);
 
   const inscribir = () => {
-    if (!idEstudiante || !idActividad) {
-      Alert.alert("Error", "Debe ingresar estudiante y actividad");
+    const estudianteNum = Number(idEstudiante);
+    const actividadNum = Number(idActividad);
+
+    if (!idEstudiante.trim() || !idActividad.trim()) {
+      Alert.alert("Error", "Debe ingresar ID de estudiante e ID de actividad");
+      return;
+    }
+
+    if (isNaN(estudianteNum) || estudianteNum <= 0) {
+      Alert.alert("Error", "El ID del estudiante debe ser un número mayor a 0");
+      return;
+    }
+
+    if (isNaN(actividadNum) || actividadNum <= 0) {
+      Alert.alert("Error", "El ID de la actividad debe ser un número mayor a 0");
       return;
     }
 
@@ -31,8 +44,8 @@ export default function InscripcionesScreen() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        id_estudiante: Number(idEstudiante),
-        id_actividad: Number(idActividad),
+        id_estudiante: estudianteNum,
+        id_actividad: actividadNum,
       }),
     })
       .then(async (res) => {
@@ -48,7 +61,31 @@ export default function InscripcionesScreen() {
         setIdActividad("");
         cargarInscripciones();
       })
-      .catch((err) => console.log(err));
+      .catch((err) => {
+        console.log(err);
+        Alert.alert("Error", "No se pudo conectar con el servidor");
+      });
+  };
+
+  const cancelarInscripcion = (id) => {
+    fetch(`${API_URL}/inscripciones/${id}`, {
+      method: "DELETE",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          Alert.alert("Error", data.error || "No se pudo cancelar la inscripción");
+          return;
+        }
+
+        Alert.alert("Correcto", "Inscripción cancelada");
+        cargarInscripciones();
+      })
+      .catch((err) => {
+        console.log(err);
+        Alert.alert("Error", "No se pudo conectar con el servidor");
+      });
   };
 
   return (
@@ -57,22 +94,10 @@ export default function InscripcionesScreen() {
 
       <View style={styles.form}>
         <Text style={styles.label}>ID Estudiante</Text>
-        <TextInput
-          style={styles.input}
-          value={idEstudiante}
-          onChangeText={setIdEstudiante}
-          keyboardType="numeric"
-          placeholder="Ej: 1"
-        />
+        <TextInput style={styles.input} value={idEstudiante} onChangeText={setIdEstudiante} keyboardType="numeric" placeholder="Ej: 1" />
 
         <Text style={styles.label}>ID Actividad</Text>
-        <TextInput
-          style={styles.input}
-          value={idActividad}
-          onChangeText={setIdActividad}
-          keyboardType="numeric"
-          placeholder="Ej: 1"
-        />
+        <TextInput style={styles.input} value={idActividad} onChangeText={setIdActividad} keyboardType="numeric" placeholder="Ej: 1" />
 
         <Pressable style={styles.primaryButton} onPress={inscribir}>
           <Text style={styles.primaryButtonText}>Inscribir estudiante</Text>
@@ -86,9 +111,16 @@ export default function InscripcionesScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{item.estudiante}</Text>
+            <Text style={styles.text}>ID Inscripción: {item.id_inscripcion}</Text>
+            <Text style={styles.text}>ID Estudiante: {item.id_estudiante}</Text>
+            <Text style={styles.text}>ID Actividad: {item.id_actividad}</Text>
             <Text style={styles.text}>Actividad: {item.actividad}</Text>
             <Text style={styles.text}>Estado: {item.estado}</Text>
             <Text style={styles.text}>Fecha: {item.fecha_inscripcion}</Text>
+
+            <Pressable style={styles.dangerButton} onPress={() => cancelarInscripcion(item.id_inscripcion)}>
+              <Text style={styles.primaryButtonText}>Cancelar inscripción</Text>
+            </Pressable>
           </View>
         )}
       />

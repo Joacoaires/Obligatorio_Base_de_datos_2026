@@ -14,6 +14,7 @@ def listar():
              JOIN actividad  a ON ast.id_actividad  = a.id_actividad
              WHERE 1=1"""
     params = []
+    # Filtramos por actividad y fecja.  
     if actividad_id:
         sql += " AND ast.id_actividad=%s"; params.append(actividad_id)
     if fecha:
@@ -24,9 +25,10 @@ def listar():
 def registrar():
     d = request.get_json(force=True)
     id_est, id_act = d.get("id_estudiante"), d.get("id_actividad")
+    #Usamos la fecha actual por defecto.
     fecha   = d.get("fecha", date.today().isoformat())
     asistio = d.get("asistio", True)
-
+    #Verificamos que el estudiante está inscripto.
     insc = query("SELECT estado FROM inscripcion WHERE id_estudiante=%s AND id_actividad=%s", (id_est, id_act), fetchone=True)
     if not insc:
         return jsonify({"error": "El estudiante no está inscripto"}), 409

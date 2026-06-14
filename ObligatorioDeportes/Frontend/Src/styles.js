@@ -42,6 +42,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "white",
     padding: 16,
     borderRadius: 12,
+    marginTop: 12,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#e5e7eb",
@@ -69,6 +70,15 @@ export const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     marginTop: 4,
+    marginBottom: 12,
+  },
+
+  dangerButton: {
+    backgroundColor: "#dc2626",
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 12,
   },
 
   secondaryButton: {

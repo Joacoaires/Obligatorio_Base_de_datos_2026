@@ -25,16 +25,19 @@ def inscribir():
     d = request.get_json(force=True)
     id_est, id_act = d.get("id_estudiante"), d.get("id_actividad")
 
+    # Validaciones.
     act = query("SELECT estado, cupo_maximo FROM actividad WHERE id_actividad=%s", (id_act,), fetchone=True)
     if not act:
         return jsonify({"error": "Actividad no encontrada"}), 404
+    # Solo se inscriben si esta abierta la actividad.
     if act["estado"] != "ABIERTA":
         return jsonify({"error": f"Actividad no abierta (estado: {act['estado']})"}), 409
-
+    # Evita que un estudiante se inscriba dos veces a la misma actividad.
     if query("SELECT id_inscripcion FROM inscripcion WHERE id_estudiante=%s AND id_actividad=%s", (id_est, id_act), fetchone=True):
         return jsonify({"error": "El estudiante ya está inscripto"}), 409
 
     confirmados = query("SELECT COUNT(*) AS c FROM inscripcion WHERE id_actividad=%s AND estado='CONFIRMADA'", (id_act,), fetchone=True)["c"]
+    #Si no hay cupo pasa a lista de espera, sino se confirma la inscripcion.
     estado = "CONFIRMADA" if confirmados < act["cupo_maximo"] else "LISTA_ESPERA"
 
     new_id = execute(
@@ -50,7 +53,8 @@ def cancelar(id):
         return jsonify({"error": "No encontrada"}), 404
 
     execute("DELETE FROM inscripcion WHERE id_inscripcion=%s", (id,))
-
+    
+    # Si se libera un cupo, mete al primer estudiante de la lista de espera.
     if insc["estado"] == "CONFIRMADA":
         sig = query(
             "SELECT id_inscripcion FROM inscripcion WHERE id_actividad=%s AND estado='LISTA_ESPERA' ORDER BY fecha_inscripcion ASC LIMIT 1",

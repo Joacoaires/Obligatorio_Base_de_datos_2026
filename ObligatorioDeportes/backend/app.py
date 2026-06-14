@@ -9,6 +9,7 @@ from routes.asistencias   import bp as bp_asistencias
 from routes.reportes      import bp as bp_reportes
 
 app = Flask(__name__)
+# Permite que el frontend pueda comunicarse con el backend
 CORS(app)
 
 app.register_blueprint(bp_estudiantes)
