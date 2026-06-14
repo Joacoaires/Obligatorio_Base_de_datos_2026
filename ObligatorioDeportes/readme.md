@@ -1,24 +1,180 @@
-Las entidades principales:
+# Sistema de Gestión de Actividades Deportivas Universitarias
 
-Hay tres entidades base independientes entre sí: el estudiante (quién), la disciplina (qué tipo de deporte) y el espacio (dónde). A partir de esas tres se construye la actividad, que es la entidad central del sistema porque combina disciplina, espacio, día, horario y cupo.
+## Descripción
 
-El flujo principal:
+Sistema para administrar actividades deportivas universitarias: estudiantes, disciplinas, espacios físicos, inscripciones y asistencias, con manejo de cupos y listas de espera.
 
-Todo gira alrededor de la inscripción. Un estudiante quiere anotarse a una actividad, y ahí entran las reglas:
+---
 
-Si la actividad no está abierta, se corta todo.
-Si está abierta y hay cupo, la inscripción queda confirmada.
-Si está abierta pero el cupo está lleno, no se rechaza al estudiante sino que se lo pone en lista de espera.
-Si ya estaba anotado, se rechaza.
+## Tecnologías utilizadas
 
-La lista de espera: 
+- MySQL 8.0
+- Python 3.12 y Flask
+- React Native con Expo (frontend mobile)
+- Docker y Docker Compose
 
-Cuando alguien cancela su inscripción confirmada, el sistema tiene que mirar automáticamente si hay alguien esperando y promoverlo. Eso no lo hace el usuario, lo hace el sistema solo.
+## Dependencias del backend
 
-La asistencia:
+```
+flask
+flask-cors
+mysql-connector-python
+```
 
-Es una capa encima de la inscripción. Solo tiene sentido registrar asistencia si el estudiante está confirmado, nunca si está en espera o si nunca se anotó.
+Instalación manual:
 
-Los reportes:
+```bash
+pip install flask flask-cors mysql-connector-python
+```
 
-Son consultas de lectura que cruzan las tablas. El único cuidado es siempre filtrar por estado = 'CONFIRMADA' en inscripción cuando se habla de inscriptos reales, y usar NULLIF cuando se calculan porcentajes para no dividir por cero si no hay registros.
+---
+
+## Cómo ejecutar el proyecto
+
+### Opción 1: Docker (recomendado)
+
+Requisitos: tener Docker Desktop instalado y corriendo.
+
+```bash
+docker-compose up --build
+```
+
+Esto levanta MySQL y el backend automáticamente.
+
+- API disponible en: http://localhost:5000
+
+Para detener:
+
+```bash
+docker-compose down
+```
+
+Para reiniciar la base de datos desde cero:
+
+```bash
+docker-compose down -v
+```
+
+---
+
+### Opción 2: Ejecución local
+
+#### Base de datos
+
+```bash
+mysql -u root -p < sql/schema.sql
+```
+
+#### Backend
+
+```bash
+cd backend
+pip install flask flask-cors mysql-connector-python
+python app.py
+```
+
+La API queda disponible en http://localhost:5000
+
+#### Frontend (React Native)
+
+```bash
+cd Frontend
+npm install
+npx expo start
+```
+
+Escanear el QR con la app Expo Go en el celular, o presionar `w` para abrir en el navegador.
+
+> Antes de correr el frontend, verificar que en `Src/config.js` la URL apunte al backend correcto.
+
+---
+
+## Organización del proyecto
+
+```
+ObligatorioDeportes/
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── database/
+│   │   └── connection.py
+│   └── routes/
+│       ├── estudiantes.py
+│       ├── disciplinas.py
+│       ├── espacios.py
+│       ├── actividades.py
+│       ├── inscripciones.py
+│       ├── asistencias.py
+│       └── reportes.py
+├── Frontend/
+│   ├── App.js
+│   ├── Src/
+│   │   ├── config.js
+│   │   ├── styles.js
+│   │   ├── components/
+│   │   │   └── Navbar.js
+│   │   └── screens/
+│   │       ├── BienvenidaScreen.js
+│   │       ├── HomeScreen.js
+│   │       ├── EstudiantesScreen.js
+│   │       ├── DisciplinasScreen.js
+│   │       ├── EspaciosScreen.js
+│   │       ├── ActividadesScreen.js
+│   │       ├── InscripcionesScreen.js
+│   │       ├── AsistenciasScreen.js
+│   │       └── ReportesScreen.js
+├── sql/
+│   ├── schema.sql
+│   └── queries.sql
+└── docker-compose.yml
+```
+
+---
+
+## Reglas de negocio implementadas
+
+- Solo se puede inscribir en actividades abiertas.
+- Al alcanzar el cupo máximo, las nuevas inscripciones pasan a lista de espera.
+- Al cancelarse una inscripción confirmada, el primero en lista de espera queda confirmado automáticamente.
+- No se permiten inscripciones duplicadas para la misma actividad.
+- Las asistencias solo se registran para inscripciones confirmadas.
+- Actividades canceladas o finalizadas no aceptan nuevas inscripciones.
+
+---
+
+## Consultas y reportes implementados
+
+1. Actividades con mayor cantidad de inscriptos confirmados
+2. Actividades con cupos disponibles
+3. Inscriptos por disciplina deportiva
+4. Inscriptos por carrera y facultad
+5. Porcentaje de ocupación por actividad
+6. Porcentaje de asistencia por actividad
+7. Estudiantes con tres o más inasistencias
+
+Consultas adicionales propuestas por el equipo:
+
+8. Estudiantes en lista de espera por actividad
+9. Resumen de actividades por estado
+10. Actividades sin ningún inscripto confirmado
+
+---
+
+## Decisiones de diseño
+
+Se utilizó un `ENUM` para el estado de la actividad y de la inscripción para garantizar que solo entren valores válidos a nivel de base de datos. Se agregó un `UNIQUE` sobre la combinación estudiante-actividad en la tabla inscripcion como segunda línea de defensa contra duplicados, además de la validación en el backend. La lógica de lista de espera y promoción automática se maneja completamente en el backend para asegurar consistencia.
+
+El frontend fue desarrollado en React Native con Expo, con pantalla de bienvenida y selección de rol (administrador, estudiante, profesor), mostrando distintas secciones según el perfil.
+
+---
+
+## Casos de prueba realizados
+
+- Inscripción con cupo disponible → queda CONFIRMADA
+- Inscripción con cupo lleno → queda en LISTA_ESPERA
+- Cancelación de inscripción confirmada → el primero en lista de espera pasa a CONFIRMADA
+- Intento de doble inscripción → error
+- Registro de asistencia de inscripto confirmado → OK
+- Registro de asistencia de estudiante en lista de espera → error
+- Inscripción en actividad cerrada o cancelada → error

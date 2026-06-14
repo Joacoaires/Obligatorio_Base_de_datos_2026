@@ -1,4 +1,5 @@
 services:
+
   mysql:
     image: mysql:8.0
     container_name: deportes_mysql
@@ -11,6 +12,27 @@ services:
     volumes:
       - deportes_mysql_data:/var/lib/mysql
       - ./sql/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: deportes_backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST:     mysql
+      DB_PORT:     "3306"
+      DB_USER:     root
+      DB_PASSWORD: root
+      DB_NAME:     deportes_universitarios
+    ports:
+      - "5000:5000"
 
 volumes:
   deportes_mysql_data:
