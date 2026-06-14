@@ -1,38 +1,96 @@
 from flask import Blueprint, request, jsonify
-from database.connection import query, execute
+from database.connection import get_connection
 
 bp = Blueprint("espacios", __name__, url_prefix="/api/espacios")
 
+
 @bp.get("/")
 def listar():
-    return jsonify(query("SELECT * FROM espacio ORDER BY nombre"))
+    conexion = get_connection()
+    cursor = conexion.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM espacio ORDER BY nombre")
+    espacios = cursor.fetchall()
+
+    cursor.close()
+    conexion.close()
+
+    return jsonify(espacios)
+
 
 @bp.get("/<int:id>")
 def obtener(id):
-    row = query("SELECT * FROM espacio WHERE id_espacio=%s", (id,), fetchone=True)
-    return jsonify(row) if row else (jsonify({"error": "No encontrado"}), 404)
+    conexion = get_connection()
+    cursor = conexion.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM espacio WHERE id_espacio = %s", (id,))
+    espacio = cursor.fetchone()
+
+    cursor.close()
+    conexion.close()
+
+    if espacio is None:
+        return jsonify({"error": "Espacio no encontrado"}), 404
+
+    return jsonify(espacio)
+
 
 @bp.post("/")
 def crear():
-    d = request.get_json(force=True)
-    new_id = execute(
-        "INSERT INTO espacio (nombre, ubicacion) VALUES (%s,%s)",
-        (d["nombre"], d.get("ubicacion", ""))
+    datos = request.get_json(force=True)
+    nombre    = datos["nombre"]
+    ubicacion = datos.get("ubicacion", "")
+
+    conexion = get_connection()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "INSERT INTO espacio (nombre, ubicacion) VALUES (%s, %s)",
+        (nombre, ubicacion)
     )
-    return jsonify({"id_espacio": new_id}), 201
+    conexion.commit()
+    nuevo_id = cursor.lastrowid
+
+    cursor.close()
+    conexion.close()
+
+    return jsonify({"id_espacio": nuevo_id}), 201
+
 
 @bp.put("/<int:id>")
 def actualizar(id):
-    d = request.get_json(force=True)
-    fields = {k: d[k] for k in ["nombre","ubicacion"] if k in d}
-    set_clause = ", ".join(f"{k}=%s" for k in fields)
-    execute(f"UPDATE espacio SET {set_clause} WHERE id_espacio=%s", (*fields.values(), id))
+    datos = request.get_json(force=True)
+    nombre    = datos["nombre"]
+    ubicacion = datos.get("ubicacion", "")
+
+    conexion = get_connection()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "UPDATE espacio SET nombre = %s, ubicacion = %s WHERE id_espacio = %s",
+        (nombre, ubicacion, id)
+    )
+    conexion.commit()
+
+    cursor.close()
+    conexion.close()
+
     return jsonify({"ok": True})
+
 
 @bp.delete("/<int:id>")
 def eliminar(id):
+    conexion = get_connection()
+    cursor = conexion.cursor()
+
     try:
-        execute("DELETE FROM espacio WHERE id_espacio=%s", (id,))
+        cursor.execute("DELETE FROM espacio WHERE id_espacio = %s", (id,))
+        conexion.commit()
+        cursor.close()
+        conexion.close()
         return jsonify({"ok": True})
+
     except Exception:
+        cursor.close()
+        conexion.close()
         return jsonify({"error": "No se puede eliminar, tiene actividades asociadas"}), 409

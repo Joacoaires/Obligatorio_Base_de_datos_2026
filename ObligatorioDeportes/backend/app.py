@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+
 from routes.estudiantes   import bp as bp_estudiantes
 from routes.disciplinas   import bp as bp_disciplinas
 from routes.espacios      import bp as bp_espacios

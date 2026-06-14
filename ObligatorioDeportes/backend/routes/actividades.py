@@ -1,43 +1,120 @@
 from flask import Blueprint, request, jsonify
-from database.connection import query, execute
+from database.connection import get_connection
 
 bp = Blueprint("actividades", __name__, url_prefix="/api/actividades")
 
-JOIN = """SELECT a.*, d.nombre AS disciplina, e.nombre AS espacio
-          FROM actividad a
-          JOIN disciplina d ON a.id_disciplina = d.id_disciplina
-          JOIN espacio e    ON a.id_espacio    = e.id_espacio"""
 
 @bp.get("/")
 def listar():
-    return jsonify(query(JOIN + " ORDER BY a.nombre"))
+    conexion = get_connection()
+    cursor = conexion.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT a.*, d.nombre AS disciplina, e.nombre AS espacio
+        FROM actividad a
+        JOIN disciplina d ON a.id_disciplina = d.id_disciplina
+        JOIN espacio e    ON a.id_espacio    = e.id_espacio
+        ORDER BY a.nombre
+    """)
+    actividades = cursor.fetchall()
+
+    cursor.close()
+    conexion.close()
+
+    return jsonify(actividades)
+
 
 @bp.get("/<int:id>")
 def obtener(id):
-    row = query(JOIN + " WHERE a.id_actividad=%s", (id,), fetchone=True)
-    return jsonify(row) if row else (jsonify({"error": "No encontrada"}), 404)
+    conexion = get_connection()
+    cursor = conexion.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT a.*, d.nombre AS disciplina, e.nombre AS espacio
+        FROM actividad a
+        JOIN disciplina d ON a.id_disciplina = d.id_disciplina
+        JOIN espacio e    ON a.id_espacio    = e.id_espacio
+        WHERE a.id_actividad = %s
+    """, (id,))
+    actividad = cursor.fetchone()
+
+    cursor.close()
+    conexion.close()
+
+    if actividad is None:
+        return jsonify({"error": "Actividad no encontrada"}), 404
+
+    return jsonify(actividad)
+
 
 @bp.post("/")
 def crear():
-    d = request.get_json(force=True)
-    new_id = execute(
-        "INSERT INTO actividad (nombre, id_disciplina, id_espacio, cupo_maximo, dia, hora, estado) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-        (d["nombre"], d["id_disciplina"], d["id_espacio"], d["cupo_maximo"], d["dia"], d["hora"], d.get("estado","ABIERTA").upper())
+    datos = request.get_json(force=True)
+
+    nombre        = datos["nombre"]
+    id_disciplina = datos["id_disciplina"]
+    id_espacio    = datos["id_espacio"]
+    cupo_maximo   = datos["cupo_maximo"]
+    dia           = datos["dia"]
+    hora          = datos["hora"]
+    estado        = datos.get("estado", "ABIERTA")
+
+    conexion = get_connection()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "INSERT INTO actividad (nombre, id_disciplina, id_espacio, cupo_maximo, dia, hora, estado) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (nombre, id_disciplina, id_espacio, cupo_maximo, dia, hora, estado)
     )
-    return jsonify({"id_actividad": new_id}), 201
+    conexion.commit()
+    nuevo_id = cursor.lastrowid
+
+    cursor.close()
+    conexion.close()
+
+    return jsonify({"id_actividad": nuevo_id}), 201
+
 
 @bp.put("/<int:id>")
 def actualizar(id):
-    d = request.get_json(force=True)
-    fields = {k: d[k] for k in ["nombre","id_disciplina","id_espacio","cupo_maximo","dia","hora","estado"] if k in d}
-    set_clause = ", ".join(f"{k}=%s" for k in fields)
-    execute(f"UPDATE actividad SET {set_clause} WHERE id_actividad=%s", (*fields.values(), id))
+    datos = request.get_json(force=True)
+
+    nombre        = datos["nombre"]
+    id_disciplina = datos["id_disciplina"]
+    id_espacio    = datos["id_espacio"]
+    cupo_maximo   = datos["cupo_maximo"]
+    dia           = datos["dia"]
+    hora          = datos["hora"]
+    estado        = datos["estado"]
+
+    conexion = get_connection()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "UPDATE actividad SET nombre = %s, id_disciplina = %s, id_espacio = %s, cupo_maximo = %s, dia = %s, hora = %s, estado = %s WHERE id_actividad = %s",
+        (nombre, id_disciplina, id_espacio, cupo_maximo, dia, hora, estado, id)
+    )
+    conexion.commit()
+
+    cursor.close()
+    conexion.close()
+
     return jsonify({"ok": True})
+
 
 @bp.delete("/<int:id>")
 def eliminar(id):
+    conexion = get_connection()
+    cursor = conexion.cursor()
+
     try:
-        execute("DELETE FROM actividad WHERE id_actividad=%s", (id,))
+        cursor.execute("DELETE FROM actividad WHERE id_actividad = %s", (id,))
+        conexion.commit()
+        cursor.close()
+        conexion.close()
         return jsonify({"ok": True})
+
     except Exception:
-        return jsonify({"error": "No se puede eliminar, tiene inscripciones o asistencias"}), 409
+        cursor.close()
+        conexion.close()
+        return jsonify({"error": "No se puede eliminar, tiene inscripciones o asistencias asociadas"}), 409
