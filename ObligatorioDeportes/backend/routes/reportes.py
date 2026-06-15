@@ -194,3 +194,21 @@ def sin_inscriptos():
     cursor.close()
     conexion.close()
     return jsonify(resultado)
+
+
+@bp.get("/actividades-por-estado")
+def actividades_por_estado():
+    conexion = get_connection()
+    cursor = conexion.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT estado, COUNT(*) AS cantidad
+        FROM actividad
+        GROUP BY estado
+        ORDER BY cantidad DESC
+    """)
+    resultado = cursor.fetchall()
+
+    cursor.close()
+    conexion.close()
+    return jsonify(resultado)
